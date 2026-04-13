@@ -1,0 +1,110 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.sved
+.hypothesis/
+.pytest_cache/
+cover/
+.ruff_cache/
+
+# Jupyter Notebook
+# .ipynb_checkpoints
+# *.ipynb
+
+# Core IDE & configurations
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# -------------------------------------------------------------
+# NNIDS Specific Ignore Rules
+# -------------------------------------------------------------
+
+# Experiment Outputs & Run Artifacts
+outputs/
+runs/
+benchmark_results/
+experiments_privacy/
+feature_analysis/
+
+# Cache Directories
+preprocessed_cache/
+.nnids_cache/
+cache/
+
+# Data Directories & CICFlowMeter Workings
+cicflowmeter_work/
+data/pcaps/
+data/s3_archives/
+data/cicflow_csv/
+data/*.csv
+data/*.pcap
+data/*.parquet
+CICFlowMeter/
+# Models
+models/*.h5
+models/*.keras
+models/*.pt
+models/*.pkl
+
+# Large Files
+*.zip
+*.tar.gz
+*.rar
+*.gz
+
+# Temporary or working directories
+tmp/
+temp/
+
+# Other
+
+AGENTS.md
+GUIDA_RAPIDA.md
+SPEC-DRIVEN.md
