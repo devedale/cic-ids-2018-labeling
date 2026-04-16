@@ -3,13 +3,15 @@
 """
 Flow labeling — Apache Spark map-reduce implementation.
 
-Pipeline per giorno:
-  1. MAP  : legge tutti i *_Flow.csv del giorno in parallelo, applica una UDF
-            row-level che assegna "Label" confrontando timestamp + IP con le
-            finestre di attacco lette dall'attack_schedule.yaml (broadcast).
-  2. REDUCE: separa benign / attack e scrive i due CSV di output.
+Per-day pipeline:
+  1. MAP   : reads all *_Flow.csv files for the day in parallel and applies a
+             row-level UDF that assigns a "Label" by comparing timestamp and
+             IP addresses against the attack windows broadcast from
+             attack_schedule.yaml.
+  2. REDUCE: splits flows into benign / attack partitions and writes the two
+             output CSVs.
 
-Entry point principale: label_day_csvs()
+Public entry point: label_day_csvs()
 """
 
 from __future__ import annotations
@@ -36,7 +38,7 @@ def _load_schedule(path: Path) -> dict:
 
 
 def _build_windows(schedule: dict, day: str) -> list:
-    """Estrae la lista di finestre di attacco per il giorno richiesto."""
+    """Extract the list of attack time windows for the requested day."""
     day_info = schedule.get(day)
     if not day_info:
         return []
@@ -83,7 +85,7 @@ def _parse_timestamp(value: str) -> Optional[datetime]:
 
 
 # ---------------------------------------------------------------------------
-# Column name resolution  (CICFlowMeter ha nomi con spazi e varianti)
+# Column name resolution  (CICFlowMeter column names may include spaces and variants)
 # ---------------------------------------------------------------------------
 
 def _find_col(columns: list, candidates: list) -> Optional[str]:
@@ -116,8 +118,8 @@ def _get_spark() -> SparkSession:
 
 def _make_label_udf(windows_broadcast):
     """
-    Restituisce una Spark UDF StringType.
-    La UDF e' la fase MAP: per ogni riga (ts, src_ip, dst_ip) -> Label.
+    Return a Spark UDF of type StringType.
+    This UDF implements the MAP phase: for each row (ts, src_ip, dst_ip) -> Label.
     """
     def _label(ts_raw: str, src_ip: str, dst_ip: str) -> str:
         windows: list = windows_broadcast.value
@@ -159,7 +161,7 @@ def _make_label_udf(windows_broadcast):
 # ---------------------------------------------------------------------------
 
 def _write_single_csv(df: DataFrame, dest: Path) -> None:
-    """Scrive un DataFrame Spark come singolo file CSV in dest."""
+    """Write a Spark DataFrame as a single CSV file to dest."""
     tmp = Path(tempfile.mkdtemp())
     try:
         df.coalesce(1).write.mode("overwrite").option("header", True).csv(str(tmp))
@@ -167,7 +169,7 @@ def _write_single_csv(df: DataFrame, dest: Path) -> None:
         if part_files:
             shutil.move(str(part_files[0]), str(dest))
         else:
-            # nessuna riga: crea file vuoto con header
+            # no rows: create an empty file with header
             dest.write_text("")
     finally:
         shutil.rmtree(str(tmp), ignore_errors=True)
@@ -185,16 +187,16 @@ def label_day_csvs(
     spark: Optional[SparkSession] = None,
 ) -> None:
     """
-    Legge tutti i *_Flow.csv di un giorno, assegna la Label (MAP),
-    poi separa benign / attack e scrive i due CSV (REDUCE).
+    Read all *_Flow.csv files for a given day, assign attack/benign labels
+    (MAP phase), then split and write the two output CSVs (REDUCE phase).
 
     Parameters
     ----------
-    csv_dir       : directory con i *_Flow.csv prodotti da CICFlowMeter
-    day           : chiave schedule, es. "Thursday-01-03-2018"
-    schedule_yaml : percorso all'attack_schedule.yaml
-    out_dir       : directory di output (benign_records.csv, attack_records.csv)
-    spark         : SparkSession esistente, o None per crearne una locale
+    csv_dir       : directory containing *_Flow.csv files produced by CICFlowMeter
+    day           : schedule key, e.g. "Thursday-01-03-2018"
+    schedule_yaml : path to attack_schedule.yaml
+    out_dir       : output directory for benign_records.csv and attack_records.csv
+    spark         : existing SparkSession, or None to create a local one
     """
     if schedule_yaml is None:
         from configs.settings import ATTACK_SCHEDULE_YAML
@@ -205,13 +207,13 @@ def label_day_csvs(
 
     _spark = spark or _get_spark()
 
-    # --- 1. Carica schedule e broadcast le finestre di attacco ---
+    # --- 1. Load schedule and broadcast attack windows ---
     schedule   = _load_schedule(Path(schedule_yaml))
     windows    = _build_windows(schedule, day)
     bc_windows = _spark.sparkContext.broadcast(windows)
 
-    # --- 2. Leggi tutti i Flow CSV del giorno in un unico DataFrame ---
-    #        Spark partiziona automaticamente la lettura su tutti i core
+    # --- 2. Read all Flow CSVs for the day into a single DataFrame ---
+    #        Spark automatically partitions reads across all available cores
     df = (
         _spark.read
         .option("header", True)
@@ -220,25 +222,25 @@ def label_day_csvs(
         .csv(str(csv_dir))
     )
 
-    # Normalizza nomi colonna (rimuove spazi CICFlowMeter)
+    # Normalise column names (strip leading/trailing spaces from CICFlowMeter output)
     df = df.toDF(*[c.strip() for c in df.columns])
 
-    # --- 3. MAP: applica UDF row-level per assegnare "Label" ---
+    # --- 3. MAP: apply row-level UDF to assign "Label" ---
     ts_col  = _find_col(df.columns, ["Timestamp", "timestamp", "Flow Start Time"])
     src_col = _find_col(df.columns, ["Src IP", "Source IP", "src_ip", "SrcIP"])
     dst_col = _find_col(df.columns, ["Dst IP", "Destination IP", "dst_ip", "DstIP"])
 
     if ts_col is None or src_col is None or dst_col is None:
         df = df.withColumn("Label", udf(lambda *_: "Benign", StringType())())
-        print(f"[labeling] WARNING: colonne timestamp/IP non trovate per {day} — tutto Benign")
+        print(f"[labeling] WARNING: timestamp/IP columns not found for {day} — all rows labelled Benign")
     else:
         label_udf = _make_label_udf(bc_windows)
         df = df.withColumn("Label", label_udf(col(ts_col), col(src_col), col(dst_col)))
 
-    # Cache in memoria per evitare ricalcolo nel doppio filter
+    # Cache in memory to avoid recomputation during the double filter
     df.cache()
 
-    # --- 4. REDUCE: separa benign / attack e scrivi i due CSV ---
+    # --- 4. REDUCE: split benign / attack and write two CSVs ---
     benign_df = df.filter(col("Label") == "Benign")
     attack_df = df.filter(col("Label") != "Benign")
 
@@ -255,11 +257,11 @@ def label_day_csvs(
 
 
 # ---------------------------------------------------------------------------
-# Pandas shim — compatibilita' backward (usata da test e codice legacy)
+# Pandas shim — backward-compatible in-memory labeling (used by tests and legacy code)
 # ---------------------------------------------------------------------------
 
 def apply(df, day: Optional[str] = None, schedule_yaml=None):
-    """Compatibilita' backward: labeling pandas in-memory."""
+    """Backward-compatible in-memory pandas labeling."""
     import pandas as pd
     if schedule_yaml is None:
         from configs.settings import ATTACK_SCHEDULE_YAML

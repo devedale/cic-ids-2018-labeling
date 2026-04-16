@@ -280,7 +280,7 @@ class Ingestion:
         day_cache = self._day_cache_dir(day)
         day_cache.mkdir(parents=True, exist_ok=True)
 
-        # Spark legge tutti i CSV in parallelo (MAP), poi scrive benign/attack (REDUCE)
+        # Spark reads all CSVs in parallel (MAP), then writes benign/attack (REDUCE)
         label_day_csvs(
             csv_dir=csv_day_dir,
             day=day,

@@ -15,9 +15,9 @@ DAYS = [
         # "Tuesday-20-02-2018",       # DDoS-LOIC-HTTP, DDoS-LOIC-UDP
         # "Wednesday-21-02-2018",   # DDoS-LOIC-UDP, DDoS-HOIC
         #"Thursday-22-02-2018",    # Web-BruteForce, Web-XSS, Web-SQLi
-        #"Friday-23-02-2018",      # Web attacks (continua)
+        #"Friday-23-02-2018",      # Web attacks (continued)
         # "Wednesday-28-02-2018",   # Infiltration
-        "Thursday-01-03-2018",    # Infiltration (continua)
+        "Thursday-01-03-2018",    # Infiltration (continued)
         "Friday-02-03-2018",      # Bot
 
 ]
@@ -28,7 +28,7 @@ S3_BUCKET = "cse-cic-ids2018"
 S3_REGION = "ca-central-1"
 S3_PREFIX = "Original Network Traffic and Log data/"
 
-# Tuesday archive is .rar, all the others are .zip
+# Tuesday archive is .rar; all other days ship as .zip
 DAY_TO_ARCHIVE = {
 	"Wednesday-14-02-2018": "pcap.zip",
 	"Thursday-15-02-2018": "pcap.zip",
@@ -48,7 +48,7 @@ PCAP_DIR = PIPELINE_ROOT / "data" / "pcaps"
 FLOW_CSV_DIR = PIPELINE_ROOT / "data" / "cicflow_csv"
 CACHE_DIR = PIPELINE_ROOT / "preprocessed_cache"
 
-# CICFlowMeter installation in the main project root
+# CICFlowMeter installation path (sibling of the pipeline root)
 CICFLOWMETER_ROOT = PROJECT_ROOT / "CICFlowMeter"
 
 # Java settings required by jnetpcap
@@ -56,11 +56,11 @@ JAVA8_HOME = "/usr/lib/jvm/java-1.8.0-openjdk-amd64"
 JAVA_XMX = "2g"
 
 # Preprocessing
-CACHE_ENABLED = False  # preprocessed.csv is never read, no need to save it
+CACHE_ENABLED = False  # preprocessed.csv is not consumed downstream; saving is opt-in
 SAMPLE_SIZE = 20000
 
-# Max rows per day kept during ingestion (applied before concat to cap RAM usage).
-# Set to None to keep all rows (risk: OOM on large days).
+# Max rows per day retained during ingestion (applied before concat to cap memory usage).
+# Set to None to retain all rows (risk: OOM on large days).
 INGEST_SAMPLE_SIZE = 500_000
 
 # Labeling

@@ -24,10 +24,10 @@ def run(args):
         cache_dir=CACHE_DIR,
     )
     clean_temp(ing.base_dir)
-    print("Pipeline terminata")
-    print("Record totali:", len(raw_df))
-    print("Record preprocessati:", len(preproc_df))
-    print("Cache in", Path(CACHE_DIR))
+    print("Pipeline complete")
+    print("Total records:", len(raw_df))
+    print("Preprocessed records:", len(preproc_df))
+    print("Cache directory:", Path(CACHE_DIR))
 
 
 if __name__ == "__main__":
